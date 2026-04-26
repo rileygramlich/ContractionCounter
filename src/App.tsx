@@ -1,14 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Menu, Settings, Play, Square, Activity, CheckCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Menu,
+  Play,
+  Square,
+  Activity,
+  CheckCircle,
+  LogIn,
+  LogOut,
+  Cloud,
+  CloudOff,
+  LoaderCircle,
+} from 'lucide-react';
+import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { collection, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
+import { auth, db, firebaseEnabled, googleProvider } from './firebase';
 
-// --- Types ---
 interface Contraction {
   id: string;
   startTime: number;
   endTime: number | null;
 }
 
-// --- Helper Functions ---
+const GUEST_STORAGE_KEY = 'contraction-counter-guest-history-v1';
+
 const formatMinSec = (ms: number): string => {
   if (ms < 0) return '0:00';
   const totalSeconds = Math.floor(ms / 1000);
@@ -22,27 +36,81 @@ const formatTimeOfDay = (timestamp: number): string => {
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 };
 
+const sortDesc = (list: Contraction[]) => [...list].sort((a, b) => b.startTime - a.startTime);
+
 export default function App() {
-  // --- State ---
   const [contractions, setContractions] = useState<Contraction[]>([]);
   const [now, setNow] = useState<number>(Date.now());
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
-  // --- Effects ---
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
-
-    // Keep the timer ticking as long as we have any contractions,
-    // so we can display the ongoing interval after hitting stop.
     if (contractions.length > 0) {
       interval = setInterval(() => setNow(Date.now()), 1000);
     }
-
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [contractions]);
 
-  // --- Derived Stats ---
+  useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+    const unsub = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!db || !user) {
+      const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Contraction[];
+          setContractions(sortDesc(parsed));
+        } catch {
+          setContractions([]);
+        }
+      } else {
+        setContractions([]);
+      }
+      return;
+    }
+
+    setDataLoading(true);
+    const contractionQuery = query(collection(db, 'users', user.uid, 'contractions'), orderBy('startTime', 'desc'));
+
+    const unsub = onSnapshot(
+      contractionQuery,
+      (snapshot) => {
+        const next = snapshot.docs.map((entry) => {
+          const value = entry.data() as { startTime: number; endTime: number | null };
+          return { id: entry.id, startTime: value.startTime, endTime: value.endTime ?? null };
+        });
+        setContractions(next);
+        setDataLoading(false);
+      },
+      () => {
+        setStatusError('Could not sync contractions from Firebase right now.');
+        setDataLoading(false);
+      },
+    );
+
+    return () => unsub();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) return;
+    localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(contractions));
+  }, [contractions, user]);
+
   const stats = useMemo(() => {
     let totalDuration = 0;
     let completedCount = 0;
@@ -54,16 +122,13 @@ export default function App() {
     const sorted = [...contractions].sort((a, b) => a.startTime - b.startTime);
 
     sorted.forEach((c, index) => {
-      if (c.startTime >= oneHourAgo) {
-        pastHourCount++;
-      }
+      if (c.startTime >= oneHourAgo) pastHourCount++;
       if (c.endTime !== null) {
         totalDuration += c.endTime - c.startTime;
         completedCount++;
       }
       if (index > 0) {
-        const prev = sorted[index - 1];
-        totalFrequency += c.startTime - prev.startTime;
+        totalFrequency += c.startTime - sorted[index - 1].startTime;
         frequencyCount++;
       }
     });
@@ -75,24 +140,19 @@ export default function App() {
     };
   }, [contractions, now]);
 
-  // --- 4-1-1 Rule Logic ---
   const is411 = useMemo(() => {
     if (contractions.length < 2) return false;
 
-    // 1. Must have been tracking for at least an hour
     const oldest = [...contractions].sort((a, b) => a.startTime - b.startTime)[0];
     if (now - oldest.startTime < 60 * 60 * 1000) return false;
 
-    // 2. Look at the data from the past hour
     const pastHourContractions = contractions.filter((c) => now - c.startTime <= 60 * 60 * 1000);
-
-    // Ensure sufficient data points to establish a real pattern (e.g., at least 10 contractions)
     if (pastHourContractions.length < 10) return false;
 
-    let totalDur = 0,
-      completed = 0;
-    let totalFreq = 0,
-      freqCount = 0;
+    let totalDur = 0;
+    let completed = 0;
+    let totalFreq = 0;
+    let freqCount = 0;
 
     const sortedRecent = [...pastHourContractions].sort((a, b) => a.startTime - b.startTime);
     sortedRecent.forEach((c, i) => {
@@ -109,58 +169,123 @@ export default function App() {
     const avgDur = completed > 0 ? totalDur / completed : 0;
     const avgFreq = freqCount > 0 ? totalFreq / freqCount : 0;
 
-    // 4-1-1 Criteria: Duration >= ~50s, Frequency <= ~5 mins (300,000ms), for 1 hour.
-    // (Giving generous boundaries to ensure it triggers in real human conditions)
     return avgDur >= 50000 && avgFreq <= 300000 && avgFreq > 0;
   }, [contractions, now]);
 
-  const activeContraction = contractions.find((c) => c.endTime === null);
-  const isTracking = !!activeContraction;
+  const displayContractions = sortDesc(contractions);
+  const activeContraction = displayContractions.find((c) => c.endTime === null);
+  const isTracking = Boolean(activeContraction);
 
-  // --- Handlers ---
-  const handleToggle = () => {
+  const handleToggle = async () => {
+    setStatusError(null);
+
     if (isTracking && activeContraction) {
-      setContractions((prev) =>
-        prev.map((c) => (c.id === activeContraction.id ? { ...c, endTime: Date.now() } : c)),
-      );
-    } else {
-      const newContraction: Contraction = {
-        id: crypto.randomUUID(),
-        startTime: Date.now(),
-        endTime: null,
-      };
-      setContractions((prev) => [newContraction, ...prev]);
+      const endedAt = Date.now();
+      setContractions((prev) => prev.map((c) => (c.id === activeContraction.id ? { ...c, endTime: endedAt } : c)));
+
+      if (db && user) {
+        try {
+          await updateDoc(doc(db, 'users', user.uid, 'contractions', activeContraction.id), { endTime: endedAt });
+        } catch {
+          setStatusError('Failed to save contraction stop time. Please retry.');
+        }
+      }
+      return;
+    }
+
+    const newContraction: Contraction = {
+      id: crypto.randomUUID(),
+      startTime: Date.now(),
+      endTime: null,
+    };
+
+    setContractions((prev) => sortDesc([newContraction, ...prev]));
+
+    if (db && user) {
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'contractions', newContraction.id), newContraction);
+      } catch {
+        setStatusError('Failed to save contraction start time. Please retry.');
+      }
     }
   };
 
-  const displayContractions = [...contractions].sort((a, b) => b.startTime - a.startTime);
+  const handleGoogleSignIn = async () => {
+    if (!auth) return;
+    setStatusError(null);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch {
+      setStatusError('Google sign-in failed. Please try again.');
+    }
+  };
 
-  // Calculate ongoing rest interval since the last contraction ended
+  const handleSignOut = async () => {
+    if (!auth) return;
+    setStatusError(null);
+    try {
+      await signOut(auth);
+    } catch {
+      setStatusError('Sign out failed. Please try again.');
+    }
+  };
+
   const lastContraction = displayContractions[0];
   const timeSinceLastStop =
-    !isTracking && lastContraction && lastContraction.endTime !== null
-      ? now - lastContraction.endTime
-      : null;
+    !isTracking && lastContraction && lastContraction.endTime !== null ? now - lastContraction.endTime : null;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-gray-800 font-sans flex flex-col w-full max-w-md mx-auto shadow-2xl relative overflow-hidden">
-      {/* --- TOP APP BAR --- */}
       <header className="bg-white px-4 pt-12 pb-4 flex justify-between items-center shadow-sm z-20 sticky top-0">
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
+        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600" aria-label="Menu">
           <Menu size={24} />
         </button>
         <h1 className="text-xl font-medium tracking-tight text-gray-800 flex items-center gap-2">
           <Activity size={20} className="text-blue-600" />
           Contractions
         </h1>
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
-          <Settings size={24} />
-        </button>
+
+        {firebaseEnabled ? (
+          user ? (
+            <button
+              onClick={handleSignOut}
+              className="px-3 py-2 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center gap-2"
+            >
+              <LogOut size={14} /> Sign out
+            </button>
+          ) : (
+            <button
+              onClick={handleGoogleSignIn}
+              className="px-3 py-2 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex items-center gap-2"
+            >
+              <LogIn size={14} /> Sign in
+            </button>
+          )
+        ) : (
+          <span className="text-[10px] uppercase tracking-wide text-amber-600 font-bold">Firebase not configured</span>
+        )}
       </header>
 
-      {/* --- SCROLLABLE CONTENT --- */}
       <main className="flex-1 overflow-y-auto px-4 pt-6 pb-32 scrollbar-hide">
-        {/* Stats Grid */}
+        <div className="mb-5 px-1">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold rounded-full px-3 py-1.5 bg-white border border-gray-200 text-gray-600">
+            {authLoading || dataLoading ? (
+              <>
+                <LoaderCircle size={14} className="animate-spin" /> Syncing...
+              </>
+            ) : user ? (
+              <>
+                <Cloud size={14} className="text-emerald-600" /> Synced as {user.displayName ?? user.email}
+              </>
+            ) : (
+              <>
+                <CloudOff size={14} className="text-gray-400" /> Guest mode (local only)
+              </>
+            )}
+          </div>
+          {statusError && <p className="text-xs text-rose-600 font-medium mt-2">{statusError}</p>}
+        </div>
+
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-blue-50 rounded-3xl p-4 flex flex-col items-center justify-center text-center">
             <span className="text-2xl font-bold text-blue-900 mb-1">
@@ -182,10 +307,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Timeline Header */}
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">History</h2>
 
-        {/* 4-1-1 Alert Banner */}
         {is411 && (
           <div className="bg-emerald-100 border-2 border-emerald-400 text-emerald-900 rounded-3xl p-5 mb-6 flex items-start gap-4 shadow-[0_8px_20px_rgba(16,185,129,0.15)] transition-all">
             <div className="bg-emerald-500 text-white p-2 rounded-full shadow-sm shrink-0">
@@ -194,14 +317,13 @@ export default function App() {
             <div>
               <h3 className="font-bold text-lg mb-1">4-1-1 Rule Reached!</h3>
               <p className="text-sm font-medium opacity-90 leading-snug">
-                Contractions have been ~4 mins apart, lasting ~1 min, for over an hour. It's time to call the
-                doctor or head to the hospital!
+                Contractions have been ~4 mins apart, lasting ~1 min, for over an hour. It's time to call the doctor
+                or head to the hospital!
               </p>
             </div>
           </div>
         )}
 
-        {/* Timeline List */}
         {displayContractions.length > 0 ? (
           <div className="flex flex-col">
             {displayContractions.map((c, index) => {
@@ -217,7 +339,6 @@ export default function App() {
                       c.endTime === null ? 'border-rose-200 shadow-rose-100' : 'border-gray-100'
                     } flex items-center justify-between transition-all z-10 relative`}
                   >
-                    {/* Left: Number indicator */}
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
                         c.endTime === null ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'
@@ -226,7 +347,6 @@ export default function App() {
                       {nodeNumber}
                     </div>
 
-                    {/* Middle: Duration & Time */}
                     <div className="flex-1 px-4">
                       <div className="text-xl font-bold text-gray-800">
                         {formatMinSec(durationMs)}
@@ -235,14 +355,12 @@ export default function App() {
                       <div className="text-sm text-gray-500 font-medium">Started {formatTimeOfDay(c.startTime)}</div>
                     </div>
 
-                    {/* Right: Frequency */}
                     <div className="text-right flex flex-col items-end">
                       <div className="text-lg font-semibold text-gray-700">{frequencyStr}</div>
                       <div className="text-[11px] text-gray-400 font-medium uppercase tracking-wider mt-1">Freq</div>
                     </div>
                   </div>
 
-                  {/* Rest Time Connector (Between Contractions) */}
                   {prevContraction && prevContraction.endTime !== null && (
                     <div className="flex justify-center items-center py-2 relative -my-1 z-0">
                       <div className="absolute top-0 bottom-0 w-0.5 bg-gray-200"></div>
@@ -269,9 +387,7 @@ export default function App() {
         )}
       </main>
 
-      {/* --- ACTION BUTTON SECTION --- */}
       <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#F8F9FA] via-[#F8F9FA] to-transparent flex flex-col items-center justify-end z-30 pointer-events-none">
-        {/* Ongoing Interval Indicator */}
         {timeSinceLastStop !== null && (
           <div className="mb-4 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-gray-200 text-center pointer-events-auto">
             <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Resting Time</span>
