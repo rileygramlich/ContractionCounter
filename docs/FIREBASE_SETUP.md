@@ -47,5 +47,6 @@ In GitHub repo settings, add Actions secrets:
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_MEASUREMENT_ID` (optional)
 
 The Pages workflow injects these at build time.

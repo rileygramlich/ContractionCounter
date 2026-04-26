@@ -235,188 +235,212 @@ export default function App() {
     !isTracking && lastContraction && lastContraction.endTime !== null ? now - lastContraction.endTime : null;
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-gray-800 font-sans flex flex-col w-full max-w-md mx-auto shadow-2xl relative overflow-hidden">
-      <header className="bg-white px-4 pt-12 pb-4 flex justify-between items-center shadow-sm z-20 sticky top-0">
-        <button className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600" aria-label="Menu">
-          <Menu size={24} />
-        </button>
-        <h1 className="text-xl font-medium tracking-tight text-gray-800 flex items-center gap-2">
-          <Activity size={20} className="text-blue-600" />
-          Contractions
-        </h1>
+    <div className="min-h-screen bg-[#F6F8FC] text-slate-800 font-sans">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 pb-3 pt-6 md:px-6 md:pt-8">
+          <button
+            className="grid h-11 w-11 place-items-center rounded-full text-slate-600 transition-colors hover:bg-slate-100"
+            aria-label="Menu"
+          >
+            <Menu size={22} />
+          </button>
 
-        {firebaseEnabled ? (
-          user ? (
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-2 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors flex items-center gap-2"
-            >
-              <LogOut size={14} /> Sign out
-            </button>
+          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 md:text-2xl">
+            <Activity size={20} className="text-blue-600" />
+            Contraction Counter
+          </h1>
+
+          {firebaseEnabled ? (
+            user ? (
+              <button
+                onClick={handleSignOut}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200 md:text-sm"
+              >
+                <LogOut size={14} /> Sign out
+              </button>
+            ) : (
+              <button
+                onClick={handleGoogleSignIn}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100 md:text-sm"
+              >
+                <LogIn size={14} /> Sign in
+              </button>
+            )
           ) : (
-            <button
-              onClick={handleGoogleSignIn}
-              className="px-3 py-2 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors flex items-center gap-2"
-            >
-              <LogIn size={14} /> Sign in
-            </button>
-          )
-        ) : (
-          <span className="text-[10px] uppercase tracking-wide text-amber-600 font-bold">Firebase not configured</span>
-        )}
+            <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 md:text-xs">
+              Firebase not configured
+            </span>
+          )}
+        </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 pt-6 pb-32 scrollbar-hide">
-        <div className="mb-5 px-1">
-          <div className="inline-flex items-center gap-2 text-xs font-semibold rounded-full px-3 py-1.5 bg-white border border-gray-200 text-gray-600">
-            {authLoading || dataLoading ? (
-              <>
-                <LoaderCircle size={14} className="animate-spin" /> Syncing...
-              </>
-            ) : user ? (
-              <>
-                <Cloud size={14} className="text-emerald-600" /> Synced as {user.displayName ?? user.email}
-              </>
-            ) : (
-              <>
-                <CloudOff size={14} className="text-gray-400" /> Guest mode (local only)
-              </>
+      <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-4 md:px-6 md:pb-8 md:pt-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-6">
+          <section className="order-2 lg:order-1">
+            <div className="mb-3 px-1">
+              <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600">
+                {authLoading || dataLoading ? (
+                  <>
+                    <LoaderCircle size={14} className="animate-spin" /> Syncing...
+                  </>
+                ) : user ? (
+                  <>
+                    <Cloud size={14} className="text-emerald-600" /> Synced as {user.displayName ?? user.email}
+                  </>
+                ) : (
+                  <>
+                    <CloudOff size={14} className="text-slate-400" /> Guest mode (local only)
+                  </>
+                )}
+              </div>
+              {statusError && <p className="mt-2 text-xs font-medium text-rose-600">{statusError}</p>}
+            </div>
+
+            {is411 && (
+              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-950 shadow-sm">
+                <div className="shrink-0 rounded-full bg-emerald-500 p-2 text-white">
+                  <CheckCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">4-1-1 Rule Reached</h3>
+                  <p className="text-sm">
+                    Contractions are near 4 mins apart, lasting about 1 min, for over an hour. Time to call your
+                    doctor or head to the hospital.
+                  </p>
+                </div>
+              </div>
             )}
-          </div>
-          {statusError && <p className="text-xs text-rose-600 font-medium mt-2">{statusError}</p>}
-        </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="bg-blue-50 rounded-3xl p-4 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-blue-900 mb-1">
-              {stats.avgDuration > 0 ? formatMinSec(stats.avgDuration) : '0:00'}
-            </span>
-            <span className="text-[11px] font-medium text-blue-700 uppercase tracking-wider">Avg Dur</span>
-          </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+              <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">History</h2>
 
-          <div className="bg-indigo-50 rounded-3xl p-4 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-indigo-900 mb-1">{stats.pastHourCount}</span>
-            <span className="text-[11px] font-medium text-indigo-700 uppercase tracking-wider">Past Hour</span>
-          </div>
+              {displayContractions.length > 0 ? (
+                <div className="flex flex-col">
+                  {displayContractions.map((c, index) => {
+                    const durationMs = c.endTime !== null ? c.endTime - c.startTime : now - c.startTime;
+                    const prevContraction = displayContractions[index + 1];
+                    const frequencyStr = prevContraction ? formatMinSec(c.startTime - prevContraction.startTime) : '--';
+                    const nodeNumber = displayContractions.length - index;
 
-          <div className="bg-purple-50 rounded-3xl p-4 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-purple-900 mb-1">
-              {stats.avgFrequency > 0 ? formatMinSec(stats.avgFrequency) : '0:00'}
-            </span>
-            <span className="text-[11px] font-medium text-purple-700 uppercase tracking-wider">Avg Freq</span>
-          </div>
-        </div>
+                    return (
+                      <React.Fragment key={c.id}>
+                        <div
+                          className={`relative z-10 flex items-center justify-between rounded-2xl border p-4 transition-all md:p-5 ${
+                            c.endTime === null
+                              ? 'border-rose-200 bg-rose-50/70 shadow-[0_8px_24px_rgba(244,63,94,0.08)]'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <div
+                            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-bold md:h-12 md:w-12 md:text-lg ${
+                              c.endTime === null ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {nodeNumber}
+                          </div>
 
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">History</h2>
+                          <div className="min-w-0 flex-1 px-3 md:px-4">
+                            <div className="text-lg font-bold text-slate-900 md:text-xl">
+                              {formatMinSec(durationMs)}
+                              {c.endTime === null && <span className="ml-1 text-rose-500 animate-pulse">●</span>}
+                            </div>
+                            <div className="truncate text-sm font-medium text-slate-500">Started {formatTimeOfDay(c.startTime)}</div>
+                          </div>
 
-        {is411 && (
-          <div className="bg-emerald-100 border-2 border-emerald-400 text-emerald-900 rounded-3xl p-5 mb-6 flex items-start gap-4 shadow-[0_8px_20px_rgba(16,185,129,0.15)] transition-all">
-            <div className="bg-emerald-500 text-white p-2 rounded-full shadow-sm shrink-0">
-              <CheckCircle size={24} />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-1">4-1-1 Rule Reached!</h3>
-              <p className="text-sm font-medium opacity-90 leading-snug">
-                Contractions have been ~4 mins apart, lasting ~1 min, for over an hour. It's time to call the doctor
-                or head to the hospital!
-              </p>
-            </div>
-          </div>
-        )}
+                          <div className="text-right">
+                            <div className="text-base font-semibold text-slate-700 md:text-lg">{frequencyStr}</div>
+                            <div className="mt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">Freq</div>
+                          </div>
+                        </div>
 
-        {displayContractions.length > 0 ? (
-          <div className="flex flex-col">
-            {displayContractions.map((c, index) => {
-              const durationMs = c.endTime !== null ? c.endTime - c.startTime : now - c.startTime;
-              const prevContraction = displayContractions[index + 1];
-              const frequencyStr = prevContraction ? formatMinSec(c.startTime - prevContraction.startTime) : '--';
-              const nodeNumber = displayContractions.length - index;
-
-              return (
-                <React.Fragment key={c.id}>
-                  <div
-                    className={`bg-white rounded-[28px] p-5 shadow-sm border ${
-                      c.endTime === null ? 'border-rose-200 shadow-rose-100' : 'border-gray-100'
-                    } flex items-center justify-between transition-all z-10 relative`}
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
-                        c.endTime === null ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {nodeNumber}
-                    </div>
-
-                    <div className="flex-1 px-4">
-                      <div className="text-xl font-bold text-gray-800">
-                        {formatMinSec(durationMs)}
-                        {c.endTime === null && <span className="text-rose-500 animate-pulse ml-1">●</span>}
-                      </div>
-                      <div className="text-sm text-gray-500 font-medium">Started {formatTimeOfDay(c.startTime)}</div>
-                    </div>
-
-                    <div className="text-right flex flex-col items-end">
-                      <div className="text-lg font-semibold text-gray-700">{frequencyStr}</div>
-                      <div className="text-[11px] text-gray-400 font-medium uppercase tracking-wider mt-1">Freq</div>
-                    </div>
+                        {prevContraction && prevContraction.endTime !== null && (
+                          <div className="relative -my-1 flex items-center justify-center py-2">
+                            <div className="absolute bottom-0 top-0 w-0.5 bg-slate-200" />
+                            <div className="z-10 flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
+                              <span className="text-slate-400">Rest:</span>
+                              <span className="font-bold text-slate-700">
+                                {formatMinSec(c.startTime - prevContraction.endTime)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-14 text-center">
+                  <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+                    <Activity size={28} className="text-slate-400" />
                   </div>
-
-                  {prevContraction && prevContraction.endTime !== null && (
-                    <div className="flex justify-center items-center py-2 relative -my-1 z-0">
-                      <div className="absolute top-0 bottom-0 w-0.5 bg-gray-200"></div>
-                      <div className="bg-white text-gray-500 text-xs font-medium px-4 py-1.5 rounded-full border border-gray-200 z-10 shadow-sm flex items-center gap-1">
-                        <span className="text-gray-400">Rest:</span>
-                        <span className="font-bold text-gray-700">
-                          {formatMinSec(c.startTime - prevContraction.endTime)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Activity size={32} className="text-gray-400" />
+                  <p className="font-medium text-slate-500">No contractions logged yet.</p>
+                  <p className="mt-1 text-sm text-slate-400">Tap the start button to begin tracking.</p>
+                </div>
+              )}
             </div>
-            <p className="text-gray-500 font-medium">No contractions logged yet.</p>
-            <p className="text-gray-400 text-sm mt-1">Press the button below to start tracking.</p>
-          </div>
-        )}
+          </section>
+
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+            <div className="grid grid-cols-3 gap-3 lg:grid-cols-1">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-center lg:p-4">
+                <div className="text-2xl font-bold text-blue-900">{stats.avgDuration > 0 ? formatMinSec(stats.avgDuration) : '0:00'}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700">Avg duration</div>
+              </div>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3 text-center lg:p-4">
+                <div className="text-2xl font-bold text-indigo-900">{stats.pastHourCount}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700">Past hour</div>
+              </div>
+              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-3 text-center lg:p-4">
+                <div className="text-2xl font-bold text-violet-900">{stats.avgFrequency > 0 ? formatMinSec(stats.avgFrequency) : '0:00'}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-violet-700">Avg frequency</div>
+              </div>
+            </div>
+
+            <div className="mt-4 hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+              {timeSinceLastStop !== null && (
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resting Time</span>
+                  <div className="text-2xl font-bold leading-tight text-slate-900 tabular-nums">
+                    {formatMinSec(timeSinceLastStop)}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleToggle}
+                className={`inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 py-3 text-base font-bold text-white transition-all ${
+                  isTracking
+                    ? 'bg-rose-500 hover:bg-rose-600 shadow-[0_10px_24px_rgba(244,63,94,0.28)]'
+                    : 'bg-blue-600 hover:bg-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.28)]'
+                }`}
+              >
+                {isTracking ? <Square className="fill-current" size={20} /> : <Play className="ml-0.5 fill-current" size={20} />}
+                <span>{isTracking ? 'Stop timer' : 'Start contraction'}</span>
+              </button>
+            </div>
+          </aside>
+        </div>
       </main>
 
-      <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#F8F9FA] via-[#F8F9FA] to-transparent flex flex-col items-center justify-end z-30 pointer-events-none">
-        {timeSinceLastStop !== null && (
-          <div className="mb-4 bg-white/90 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-gray-200 text-center pointer-events-auto">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Resting Time</span>
-            <div className="text-xl font-bold text-gray-800 tabular-nums leading-tight">
-              {formatMinSec(timeSinceLastStop)}
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/70 bg-white/90 p-4 backdrop-blur lg:hidden" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto w-full max-w-6xl">
+          {timeSinceLastStop !== null && (
+            <div className="mb-3 rounded-full border border-slate-200 bg-white px-5 py-2 text-center shadow-sm pointer-events-auto">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resting Time</span>
+              <div className="text-xl font-bold leading-tight text-slate-900 tabular-nums">{formatMinSec(timeSinceLastStop)}</div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="pointer-events-auto shadow-2xl rounded-[32px]">
           <button
             onClick={handleToggle}
-            className={`h-20 px-8 rounded-[32px] flex items-center justify-center gap-3 transition-all duration-300 ${
+            className={`pointer-events-auto inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 py-3 text-base font-bold text-white transition-all ${
               isTracking
-                ? 'bg-rose-500 hover:bg-rose-600 shadow-[0_8px_20px_rgba(244,63,94,0.3)] text-white'
-                : 'bg-blue-600 hover:bg-blue-700 shadow-[0_8px_20px_rgba(37,99,235,0.3)] text-white'
+                ? 'bg-rose-500 hover:bg-rose-600 shadow-[0_10px_24px_rgba(244,63,94,0.28)]'
+                : 'bg-blue-600 hover:bg-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.28)]'
             }`}
           >
-            {isTracking ? (
-              <>
-                <Square className="fill-current" size={24} />
-                <span className="text-lg font-bold tracking-wide">Stop Timer</span>
-              </>
-            ) : (
-              <>
-                <Play className="fill-current ml-1" size={24} />
-                <span className="text-lg font-bold tracking-wide">Start Contraction</span>
-              </>
-            )}
+            {isTracking ? <Square className="fill-current" size={20} /> : <Play className="ml-0.5 fill-current" size={20} />}
+            <span>{isTracking ? 'Stop timer' : 'Start contraction'}</span>
           </button>
         </div>
       </div>
