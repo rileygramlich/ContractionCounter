@@ -11,7 +11,14 @@ import {
   CloudOff,
   LoaderCircle,
 } from 'lucide-react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { collection, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, firebaseEnabled, googleProvider } from './firebase';
 
@@ -215,7 +222,24 @@ export default function App() {
     setStatusError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch {
+    } catch (error) {
+      const code = error instanceof FirebaseError ? error.code : '';
+
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch {
+          setStatusError('Google sign-in needs a regular browser. Open this app in Chrome/Safari and try again.');
+          return;
+        }
+      }
+
+      if (code === 'auth/unauthorized-domain') {
+        setStatusError('Google sign-in domain is not authorized in Firebase yet. Add this site URL in Firebase Auth.');
+        return;
+      }
+
       setStatusError('Google sign-in failed. Please try again.');
     }
   };
