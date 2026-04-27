@@ -5,6 +5,8 @@ import {
   Square,
   Activity,
   CheckCircle,
+  TriangleAlert,
+  RotateCcw,
   LogIn,
   LogOut,
   Cloud,
@@ -19,7 +21,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
-import { collection, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, firebaseEnabled, googleProvider } from './firebase';
 
 interface Contraction {
@@ -52,6 +54,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -254,6 +258,26 @@ export default function App() {
     }
   };
 
+  const handleStartOverConfirm = async () => {
+    if (resetBusy) return;
+    setStatusError(null);
+    setResetBusy(true);
+
+    try {
+      if (db && user) {
+        const snap = await getDocs(collection(db, 'users', user.uid, 'contractions'));
+        await Promise.all(snap.docs.map((entry) => deleteDoc(entry.ref)));
+      }
+      setContractions([]);
+      if (!user) localStorage.removeItem(GUEST_STORAGE_KEY);
+      setResetConfirmOpen(false);
+    } catch {
+      setStatusError('Could not clear contraction history. Please try again.');
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   const lastContraction = displayContractions[0];
   const timeSinceLastStop =
     !isTracking && lastContraction && lastContraction.endTime !== null ? now - lastContraction.endTime : null;
@@ -441,6 +465,13 @@ export default function App() {
                 {isTracking ? <Square className="fill-current" size={20} /> : <Play className="ml-0.5 fill-current" size={20} />}
                 <span>{isTracking ? 'Stop timer' : 'Start contraction'}</span>
               </button>
+
+              <button
+                onClick={() => setResetConfirmOpen(true)}
+                className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+              >
+                <RotateCcw size={16} /> Start over
+              </button>
             </div>
           </aside>
         </div>
@@ -466,8 +497,44 @@ export default function App() {
             {isTracking ? <Square className="fill-current" size={20} /> : <Play className="ml-0.5 fill-current" size={20} />}
             <span>{isTracking ? 'Stop timer' : 'Start contraction'}</span>
           </button>
+
+          <button
+            onClick={() => setResetConfirmOpen(true)}
+            className="pointer-events-auto mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+          >
+            <RotateCcw size={16} /> Start over
+          </button>
         </div>
       </div>
+
+      {resetConfirmOpen && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+              <TriangleAlert size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Start over?</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              This will permanently clear your contraction history{user ? ' from Firebase and this device' : ''}.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setResetConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartOverConfirm}
+                disabled={resetBusy}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resetBusy ? 'Clearing…' : 'Yes, clear all'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
