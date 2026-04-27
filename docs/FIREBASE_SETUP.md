@@ -14,6 +14,20 @@
    - `localhost`
    - `<your-github-username>.github.io`
 
+### Google sign-in callback clarification (important)
+
+- For Firebase Web Auth, the OAuth callback is handled by Firebase at:
+  - `https://<your-firebase-auth-domain>/__/auth/handler`
+- You **do not** set the callback to your GitHub Pages URL.
+- Your `VITE_FIREBASE_AUTH_DOMAIN` should be your Firebase auth domain (usually `your-project-id.firebaseapp.com`), not `github.io`.
+- Your GitHub Pages host (for this project: `rileygramlich.github.io`) must be listed in **Firebase Authentication → Settings → Authorized domains**.
+
+If Google sign-in fails on Pages, check these in order:
+1. Google provider is enabled in Firebase Auth.
+2. `rileygramlich.github.io` is in Authorized domains.
+3. `VITE_FIREBASE_AUTH_DOMAIN` is set to `*.firebaseapp.com` for your project.
+4. Deployed site URL is exactly `https://rileygramlich.github.io/ContractionCounter/`.
+
 ## 3) Enable Firestore
 
 1. Firebase Console → Firestore Database → Create database.
