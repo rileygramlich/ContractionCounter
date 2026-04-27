@@ -4,6 +4,10 @@
   color-scheme: light;
 }
 
+:root.dark {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -17,6 +21,10 @@ body {
   background: #f6f8fc;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+.dark body {
+  background: #020617;
 }
 
 /* Utility used by the app */
