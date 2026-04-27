@@ -7,6 +7,8 @@ import {
   CheckCircle,
   TriangleAlert,
   RotateCcw,
+  Moon,
+  Sun,
   LogIn,
   LogOut,
   Cloud,
@@ -31,6 +33,7 @@ interface Contraction {
 }
 
 const GUEST_STORAGE_KEY = 'contraction-counter-guest-history-v1';
+const THEME_STORAGE_KEY = 'contraction-counter-theme-v1';
 
 const formatMinSec = (ms: number): string => {
   if (ms < 0) return '0:00';
@@ -56,6 +59,17 @@ export default function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light',
+  );
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme, isDark]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -283,20 +297,30 @@ export default function App() {
     !isTracking && lastContraction && lastContraction.endTime !== null ? now - lastContraction.endTime : null;
 
   return (
-    <div className="min-h-screen bg-[#F6F8FC] text-slate-800 font-sans">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+    <div className={`min-h-screen font-sans ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-[#F6F8FC] text-slate-800'}`}>
+      <header className={`sticky top-0 z-20 border-b backdrop-blur ${isDark ? 'border-slate-800 bg-slate-950/95' : 'border-slate-200/80 bg-white/95'}`}>
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 pb-3 pt-6 md:px-6 md:pt-8">
           <button
-            className="grid h-11 w-11 place-items-center rounded-full text-slate-600 transition-colors hover:bg-slate-100"
+            className={`grid h-11 w-11 place-items-center rounded-full transition-colors ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
             aria-label="Menu"
           >
             <Menu size={22} />
           </button>
 
-          <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 md:text-2xl">
+          <h1 className={`flex items-center gap-2 text-lg font-semibold tracking-tight md:text-2xl ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
             <Activity size={20} className="text-blue-600" />
             Contraction Counter
           </h1>
+
+          <button
+            onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors md:text-sm ${
+              isDark ? 'bg-slate-800 text-slate-100 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            {isDark ? 'Light' : 'Dark'}
+          </button>
 
           {firebaseEnabled ? (
             user ? (
@@ -359,8 +383,8 @@ export default function App() {
               </div>
             )}
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
-              <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">History</h2>
+            <div className={`rounded-3xl border p-3 shadow-sm md:p-4 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+              <h2 className={`mb-2 px-2 text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>History</h2>
 
               {displayContractions.length > 0 ? (
                 <div className="flex flex-col">
@@ -375,38 +399,48 @@ export default function App() {
                         <div
                           className={`relative z-10 flex items-center justify-between rounded-2xl border p-4 transition-all md:p-5 ${
                             c.endTime === null
-                              ? 'border-rose-200 bg-rose-50/70 shadow-[0_8px_24px_rgba(244,63,94,0.08)]'
-                              : 'border-slate-200 bg-white'
+                              ? isDark
+                                ? 'border-rose-800/70 bg-rose-950/30 shadow-[0_8px_24px_rgba(244,63,94,0.12)]'
+                                : 'border-rose-200 bg-rose-50/70 shadow-[0_8px_24px_rgba(244,63,94,0.08)]'
+                              : isDark
+                                ? 'border-slate-800 bg-slate-900'
+                                : 'border-slate-200 bg-white'
                           }`}
                         >
                           <div
                             className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-base font-bold md:h-12 md:w-12 md:text-lg ${
-                              c.endTime === null ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                              c.endTime === null
+                                ? isDark
+                                  ? 'bg-rose-900/40 text-rose-300'
+                                  : 'bg-rose-100 text-rose-700'
+                                : isDark
+                                  ? 'bg-slate-800 text-slate-300'
+                                  : 'bg-slate-100 text-slate-600'
                             }`}
                           >
                             {nodeNumber}
                           </div>
 
                           <div className="min-w-0 flex-1 px-3 md:px-4">
-                            <div className="text-lg font-bold text-slate-900 md:text-xl">
+                            <div className={`text-lg font-bold md:text-xl ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
                               {formatMinSec(durationMs)}
                               {c.endTime === null && <span className="ml-1 text-rose-500 animate-pulse">●</span>}
                             </div>
-                            <div className="truncate text-sm font-medium text-slate-500">Started {formatTimeOfDay(c.startTime)}</div>
+                            <div className={`truncate text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Started {formatTimeOfDay(c.startTime)}</div>
                           </div>
 
                           <div className="text-right">
-                            <div className="text-base font-semibold text-slate-700 md:text-lg">{frequencyStr}</div>
-                            <div className="mt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">Freq</div>
+                            <div className={`text-base font-semibold md:text-lg ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{frequencyStr}</div>
+                            <div className={`mt-1 text-[11px] font-medium uppercase tracking-wider ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Freq</div>
                           </div>
                         </div>
 
                         {prevContraction && prevContraction.endTime !== null && (
                           <div className="relative -my-1 flex items-center justify-center py-2">
-                            <div className="absolute bottom-0 top-0 w-0.5 bg-slate-200" />
-                            <div className="z-10 flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
-                              <span className="text-slate-400">Rest:</span>
-                              <span className="font-bold text-slate-700">
+                            <div className={`absolute bottom-0 top-0 w-0.5 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                            <div className={`z-10 flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium shadow-sm ${isDark ? 'border-slate-700 bg-slate-900 text-slate-300' : 'border-slate-200 bg-white text-slate-500'}`}>
+                              <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Rest:</span>
+                              <span className={`font-bold ${isDark ? 'text-slate-100' : 'text-slate-700'}`}>
                                 {formatMinSec(c.startTime - prevContraction.endTime)}
                               </span>
                             </div>
@@ -418,11 +452,11 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-14 text-center">
-                  <div className="mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
-                    <Activity size={28} className="text-slate-400" />
+                  <div className={`mb-4 grid h-20 w-20 place-items-center rounded-full ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                    <Activity size={28} className={isDark ? 'text-slate-500' : 'text-slate-400'} />
                   </div>
-                  <p className="font-medium text-slate-500">No contractions logged yet.</p>
-                  <p className="mt-1 text-sm text-slate-400">Tap the start button to begin tracking.</p>
+                  <p className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No contractions logged yet.</p>
+                  <p className={`mt-1 text-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Tap the start button to begin tracking.</p>
                 </div>
               )}
             </div>
@@ -444,11 +478,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mt-4 hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:block">
+            <div className={`mt-4 hidden rounded-3xl border p-4 shadow-sm lg:block ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-white'}`}>
               {timeSinceLastStop !== null && (
-                <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center">
-                  <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resting Time</span>
-                  <div className="text-2xl font-bold leading-tight text-slate-900 tabular-nums">
+                <div className={`mb-4 rounded-2xl border px-4 py-3 text-center ${isDark ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-slate-50'}`}>
+                  <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Resting Time</span>
+                  <div className={`text-2xl font-bold leading-tight tabular-nums ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
                     {formatMinSec(timeSinceLastStop)}
                   </div>
                 </div>
@@ -468,7 +502,7 @@ export default function App() {
 
               <button
                 onClick={() => setResetConfirmOpen(true)}
-                className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+                className={`mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-semibold transition-all ${isDark ? 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
               >
                 <RotateCcw size={16} /> Start over
               </button>
@@ -477,12 +511,12 @@ export default function App() {
         </div>
       </main>
 
-      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/70 bg-white/90 p-4 backdrop-blur lg:hidden" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      <div className={`pointer-events-none fixed bottom-0 left-0 right-0 z-30 border-t p-4 backdrop-blur lg:hidden ${isDark ? 'border-slate-800 bg-slate-950/90' : 'border-slate-200/70 bg-white/90'}`} style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto w-full max-w-6xl">
           {timeSinceLastStop !== null && (
-            <div className="mb-3 rounded-full border border-slate-200 bg-white px-5 py-2 text-center shadow-sm pointer-events-auto">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Resting Time</span>
-              <div className="text-xl font-bold leading-tight text-slate-900 tabular-nums">{formatMinSec(timeSinceLastStop)}</div>
+            <div className={`mb-3 rounded-full border px-5 py-2 text-center shadow-sm pointer-events-auto ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'}`}>
+              <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Resting Time</span>
+              <div className={`text-xl font-bold leading-tight tabular-nums ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{formatMinSec(timeSinceLastStop)}</div>
             </div>
           )}
 
@@ -500,7 +534,7 @@ export default function App() {
 
           <button
             onClick={() => setResetConfirmOpen(true)}
-            className="pointer-events-auto mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
+            className={`pointer-events-auto mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-semibold transition-all ${isDark ? 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
           >
             <RotateCcw size={16} /> Start over
           </button>
@@ -508,19 +542,19 @@ export default function App() {
       </div>
 
       {resetConfirmOpen && (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/45 p-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl">
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/55 p-4">
+          <div className={`w-full max-w-md rounded-3xl border p-5 shadow-2xl ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white'}`}>
             <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-rose-600">
               <TriangleAlert size={20} />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Start over?</h3>
-            <p className="mt-1 text-sm text-slate-600">
+            <h3 className={`text-lg font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Start over?</h3>
+            <p className={`mt-1 text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
               This will permanently clear your contraction history{user ? ' from Firebase and this device' : ''}.
             </p>
             <div className="mt-5 flex gap-2">
               <button
                 onClick={() => setResetConfirmOpen(false)}
-                className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold ${isDark ? 'border-slate-700 text-slate-200 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
               >
                 Cancel
               </button>
