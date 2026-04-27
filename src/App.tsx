@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Moon,
   Sun,
+  X,
   LogIn,
   LogOut,
   Cloud,
@@ -59,6 +60,7 @@ export default function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() =>
     localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light',
   );
@@ -301,6 +303,7 @@ export default function App() {
       <header className={`sticky top-0 z-20 border-b backdrop-blur ${isDark ? 'border-slate-800 bg-slate-950/95' : 'border-slate-200/80 bg-white/95'}`}>
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 pb-3 pt-6 md:px-6 md:pt-8">
           <button
+            onClick={() => setMenuOpen(true)}
             className={`grid h-11 w-11 place-items-center rounded-full transition-colors ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
             aria-label="Menu"
           >
@@ -565,6 +568,59 @@ export default function App() {
               >
                 {resetBusy ? 'Clearing…' : 'Yes, clear all'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {menuOpen && (
+        <div className="fixed inset-0 z-50">
+          <button className="absolute inset-0 bg-slate-900/45" onClick={() => setMenuOpen(false)} aria-label="Close menu" />
+          <div className={`absolute left-0 top-0 h-full w-[86%] max-w-sm border-r p-5 shadow-2xl ${isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white'}`}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className={`text-base font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>Menu</h3>
+              <button
+                onClick={() => setMenuOpen(false)}
+                className={`grid h-10 w-10 place-items-center rounded-full ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}
+                aria-label="Close menu"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setResetConfirmOpen(true);
+                }}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'}`}
+              >
+                <span>Start over</span>
+                <RotateCcw size={16} />
+              </button>
+
+              <button
+                onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'}`}
+              >
+                <span>{isDark ? 'Switch to light mode' : 'Switch to dark mode'}</span>
+                {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+
+              {firebaseEnabled && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    if (user) void handleSignOut();
+                    else void handleGoogleSignIn();
+                  }}
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-semibold ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800' : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'}`}
+                >
+                  <span>{user ? 'Sign out' : 'Sign in with Google'}</span>
+                  {user ? <LogOut size={16} /> : <LogIn size={16} />}
+                </button>
+              )}
             </div>
           </div>
         </div>
